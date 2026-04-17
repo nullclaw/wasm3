@@ -24,6 +24,7 @@ pub fn build(b: *std.Build) void {
     lib.root_module.addCSourceFile(.{ .file = b.path("source/m3_info.c") });
     lib.root_module.addCSourceFile(.{ .file = b.path("source/m3_module.c") });
     lib.root_module.addCSourceFile(.{ .file = b.path("source/m3_parse.c") });
+    lib.installHeadersDirectory(b.path("source"), "", .{});
 
     b.installArtifact(lib);
 }
