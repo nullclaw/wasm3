@@ -57,9 +57,17 @@ jobs:
           mkdir -p ci-artifacts/include ci-artifacts/lib
           find zig-out/include -maxdepth 1 -type f -name '*.h' -exec cp {} ci-artifacts/include/ \;
           cp LICENSE ci-artifacts/
-          cp zig-out/lib/libwasm3.a ci-artifacts/lib/
-          if [ -f zig-out/lib/wasm3.lib ]; then
-            cp zig-out/lib/wasm3.lib ci-artifacts/lib/
+          found_lib=0
+          for artifact in zig-out/lib/libwasm3.a zig-out/lib/wasm3.lib; do
+            if [ -f "$artifact" ]; then
+              cp "$artifact" ci-artifacts/lib/
+              found_lib=1
+            fi
+          done
+          if [ "$found_lib" -eq 0 ]; then
+            echo "No wasm3 library artifact found in zig-out/lib" >&2
+            ls -la zig-out/lib >&2 || true
+            exit 1
           fi
 
       - name: Upload package
