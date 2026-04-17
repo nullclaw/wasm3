@@ -1,0 +1,70 @@
+name: CI
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  ZIG_VERSION: "0.16.0"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x86_64
+            zig_target: x86_64-linux-musl
+          - os: macos-latest
+            target: macos-aarch64
+            zig_target: aarch64-macos
+          - os: windows-latest
+            target: windows-x86_64
+            zig_target: x86_64-windows
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Zig 0.16.0
+        run: bash .github/scripts/install-zig.sh "${ZIG_VERSION}"
+
+      - name: Cache Zig build outputs
+        uses: actions/cache@v5
+        with:
+          path: |
+            .zig-cache
+            ~/.cache/zig
+          key: zig-${{ matrix.target }}-${{ hashFiles('build.zig', 'build.zig.zon', 'source/**') }}
+          restore-keys: zig-${{ matrix.target }}-
+
+      - name: Build native Debug
+        run: zig build
+
+      - name: Build ReleaseSmall
+        run: zig build -Dtarget=${{ matrix.zig_target }} -Doptimize=ReleaseSmall
+
+      - name: Preserve package
+        run: |
+          mkdir -p ci-artifacts/include ci-artifacts/lib
+          find zig-out/include -maxdepth 1 -type f -name '*.h' -exec cp {} ci-artifacts/include/ \;
+          cp LICENSE ci-artifacts/
+          cp zig-out/lib/libwasm3.a ci-artifacts/lib/
+          if [ -f zig-out/lib/wasm3.lib ]; then
+            cp zig-out/lib/wasm3.lib ci-artifacts/lib/
+          fi
+
+      - name: Upload package
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wasm3-${{ matrix.target }}
+          path: ci-artifacts
